@@ -1,0 +1,55 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+timeout = 120
+addopts = ["--tb=short", "--strict-markers", "-q"]
+markers = [
+    "slow: slow tests",
+    "integration: integration tests requiring services",
+    "ml: tests requiring ML models",
+    "gpu: tests requiring GPU",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::UserWarning:torch",
+    "ignore::FutureWarning",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM"]
+ignore = ["E501", "B008", "N806", "N803", "SIM108", "UP007", "N802"]
+exclude = [".venv", "alembic/versions", "notebooks", "*.ipynb"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+exclude = '''/(\.venv|alembic\/versions|notebooks)/'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+known_first_party = ["backend", "ml", "agents", "dashboard"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+no_strict_optional = true
+warn_return_any = false
+exclude = ["alembic/", "notebooks/", "tests/"]
+
+[tool.bandit]
+exclude_dirs = ["tests", "notebooks", ".venv"]
+skips = ["B101", "B601", "B603"]
+
+[tool.coverage.run]
+source = ["backend", "ml", "agents"]
+omit = ["*/tests/*", "*/migrations/*", "*/alembic/*"]
+
+[tool.coverage.report]
+fail_under = 70
+show_missing = true

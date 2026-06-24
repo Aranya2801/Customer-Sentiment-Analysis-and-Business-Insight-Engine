@@ -1,0 +1,133 @@
+site_name: Sentiment Intelligence Platform
+site_description: Enterprise AI for Customer Sentiment Analysis & Business Intelligence
+site_author: Sentiment Engine Team
+site_url: https://your-org.github.io/SentimentEngine
+repo_url: https://github.com/your-org/SentimentEngine
+repo_name: SentimentEngine
+edit_uri: edit/main/docs/
+
+copyright: Copyright &copy; 2024 Sentiment Intelligence Platform — MIT License
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: deep purple
+      accent: pink
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - scheme: default
+      primary: deep purple
+      accent: pink
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  favicon: assets/favicon.ico
+  logo: assets/logo.svg
+  icon:
+    repo: fontawesome/brands/github
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [.]
+          options:
+            show_source: true
+            docstring_style: google
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - toc:
+      permalink: true
+  - attr_list
+  - def_list
+  - tables
+  - footnotes
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Quick Start: getting_started/quickstart.md
+      - Installation: getting_started/installation.md
+      - Configuration: getting_started/configuration.md
+      - Docker: getting_started/docker.md
+  - ML Models:
+      - Overview: ml_models/overview.md
+      - Sentiment Ensemble: ml_models/sentiment.md
+      - Emotion Detection: ml_models/emotion.md
+      - Intent & Urgency: ml_models/intent.md
+      - Aspect Analysis: ml_models/aspect.md
+      - Churn Prediction: ml_models/churn.md
+      - Topic Modeling: ml_models/topics.md
+  - AI Features:
+      - RAG System: features/rag.md
+      - AI Agents: features/agents.md
+      - GenAI Reports: features/reports.md
+      - Sarcasm Detection: features/sarcasm.md
+  - API Reference:
+      - Overview: api/overview.md
+      - Sentiment: api/sentiment.md
+      - Emotion: api/emotion.md
+      - Churn: api/churn.md
+      - Insights: api/insights.md
+      - Reports: api/reports.md
+      - RAG: api/rag.md
+  - Dashboard:
+      - Overview: dashboard/overview.md
+      - Pages Guide: dashboard/pages.md
+  - Data Sources:
+      - Overview: data/overview.md
+      - Amazon: data/amazon.md
+      - Yelp: data/yelp.md
+      - Twitter: data/twitter.md
+      - Datasets: data/datasets.md
+  - MLOps:
+      - MLflow: mlops/mlflow.md
+      - Training Pipeline: mlops/training.md
+      - Model Versioning: mlops/versioning.md
+  - Deployment:
+      - Docker Compose: deployment/docker.md
+      - AWS: deployment/aws.md
+      - GCP: deployment/gcp.md
+      - Railway: deployment/railway.md
+  - Research:
+      - Architecture: research/architecture.md
+      - Benchmarks: research/benchmarks.md
+      - References: research/references.md
+  - Contributing: contributing.md
+  - Changelog: changelog.md
+  - Roadmap: roadmap.md

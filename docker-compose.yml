@@ -1,0 +1,260 @@
+version: "3.9"
+
+# ================================================================
+# Customer Sentiment Analysis & Business Insight Engine
+# Full Stack Docker Compose
+# ================================================================
+
+x-common-env: &common-env
+  TZ: UTC
+  PYTHONUNBUFFERED: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+
+x-restart: &restart
+  restart: unless-stopped
+
+networks:
+  sentiment_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+
+volumes:
+  postgres_data:
+  redis_data:
+  chromadb_data:
+  mlflow_data:
+  models_data:
+  reports_data:
+
+services:
+
+  # ── PostgreSQL ─────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: sentiment-postgres
+    <<: *restart
+    environment:
+      <<: *common-env
+      POSTGRES_DB: ${POSTGRES_DB:-sentiment_engine}
+      POSTGRES_USER: ${POSTGRES_USER:-sentiment_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sentiment_dev_pass}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/migration/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      sentiment_net:
+        ipv4_address: 172.21.0.10
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sentiment_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ──────────────────────────────────────────────────────
+  redis:
+    image: redis:7.2-alpine
+    container_name: sentiment-redis
+    <<: *restart
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      sentiment_net:
+        ipv4_address: 172.21.0.11
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── ChromaDB ───────────────────────────────────────────────────
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: sentiment-chromadb
+    <<: *restart
+    environment:
+      - CHROMA_SERVER_AUTH_CREDENTIALS_PROVIDER=chromadb.auth.token.TokenConfigServerAuthCredentialsProvider
+      - ANONYMIZED_TELEMETRY=false
+    volumes:
+      - chromadb_data:/chroma/chroma
+    ports:
+      - "8001:8000"
+    networks:
+      sentiment_net:
+        ipv4_address: 172.21.0.12
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/api/v1/heartbeat || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ── MLflow ─────────────────────────────────────────────────────
+  mlflow:
+    image: python:3.11-slim
+    container_name: sentiment-mlflow
+    <<: *restart
+    command: >
+      bash -c "pip install mlflow psycopg2-binary -q &&
+               mlflow server
+               --host 0.0.0.0
+               --port 5000
+               --backend-store-uri postgresql://${POSTGRES_USER:-sentiment_user}:${POSTGRES_PASSWORD:-sentiment_dev_pass}@postgres:5432/${POSTGRES_DB:-sentiment_engine}
+               --default-artifact-root /mlruns"
+    volumes:
+      - mlflow_data:/mlruns
+    ports:
+      - "5000:5000"
+    networks:
+      sentiment_net:
+        ipv4_address: 172.21.0.13
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── FastAPI Backend ────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: sentiment-engine-api:latest
+    container_name: sentiment-api
+    <<: *restart
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      CHROMA_HOST: chromadb
+      CHROMA_PORT: 8000
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      SECRET_KEY: ${SECRET_KEY:-CHANGE_IN_PRODUCTION}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      USE_GPU: "false"
+      DEVICE: cpu
+    volumes:
+      - models_data:/app/ml/registry/saved
+      - reports_data:/app/reports
+      - ./data:/app/data
+    ports:
+      - "8000:8000"
+    networks:
+      sentiment_net:
+        ipv4_address: 172.21.0.20
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/api/v1/health/live || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ── Streamlit Dashboard ────────────────────────────────────────
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: sentiment-engine-api:latest
+    container_name: sentiment-dashboard
+    <<: *restart
+    command: >
+      streamlit run dashboard/app.py
+      --server.port 8501
+      --server.address 0.0.0.0
+      --server.headless true
+      --theme.base dark
+      --theme.primaryColor "#6366f1"
+      --theme.backgroundColor "#0a0e1a"
+      --theme.secondaryBackgroundColor "#111827"
+      --theme.textColor "#e2e8f0"
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      CHROMA_HOST: chromadb
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      USE_GPU: "false"
+      DEVICE: cpu
+    volumes:
+      - models_data:/app/ml/registry/saved
+      - reports_data:/app/reports
+      - ./data:/app/data
+    ports:
+      - "8501:8501"
+    networks:
+      sentiment_net:
+        ipv4_address: 172.21.0.21
+
+  # ── Prometheus ─────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.48.1
+    container_name: sentiment-prometheus
+    <<: *restart
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    networks:
+      - sentiment_net
+
+  # ── Grafana ────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.2.3
+    container_name: sentiment-grafana
+    <<: *restart
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-sentiment}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    volumes:
+      - ./monitoring/grafana:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - sentiment_net
+    depends_on:
+      - prometheus
+
+  # ── Nginx Reverse Proxy ────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: sentiment-nginx
+    <<: *restart
+    volumes:
+      - ./deployment/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
+    networks:
+      - sentiment_net
+    depends_on:
+      - api
+      - dashboard
+    profiles:
+      - production

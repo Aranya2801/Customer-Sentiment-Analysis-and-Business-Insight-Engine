@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# ML Models (large binaries)
+ml/registry/saved/*.pkl
+ml/registry/saved/*.pt
+ml/registry/saved/*.bin
+!ml/registry/saved/.gitkeep
+
+# Data
+data/raw/
+data/processed/
+data/external/
+data/embeddings/chroma/
+!data/sample/.gitkeep
+
+# Reports
+reports/generated/
+!reports/generated/.gitkeep
+
+# MLflow
+mlruns/
+mlartifacts/
+
+# Coverage
+.coverage
+htmlcov/
+coverage.xml
+.pytest_cache/
+
+# MkDocs
+site/
+
+# Logs
+*.log
+logs/
+
+# Notebooks output
+notebooks/*.ipynb
+!notebooks/README.md
